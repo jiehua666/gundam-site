@@ -265,14 +265,46 @@ async function main() {
 
   // ==================== 4.5 创建任务数据 ====================
   const missions = [
+    // 每日任务
     { name: '每日登录', description: '每天登录网站', type: 'daily', xpReward: 10 },
+    { name: '每日签到', description: '每天签到一次', type: 'daily', xpReward: 15 },
+    { name: '每日浏览', description: '浏览5个作品', type: 'daily', xpReward: 5 },
+
+    // 一次性任务
     { name: '完善资料', description: '填写个人简介', type: 'once', xpReward: 50 },
     { name: '首次评论', description: '发表第一条评论', type: 'once', xpReward: 30 },
     { name: '首次作品', description: '发布第一个作品', type: 'once', xpReward: 100 },
-    { name: '每日签到', description: '每天签到一次', type: 'daily', xpReward: 15 },
-    { name: '获得10赞', description: '作品获得10个赞', type: 'progress', xpReward: 50 },
-    { name: '关注5人', description: '关注5个其他用户', type: 'progress', xpReward: 30 },
-    { name: '评论10次', description: '发表评论10次', type: 'progress', xpReward: 40 },
+    { name: '首次点赞', description: '给作品点赞', type: 'once', xpReward: 20 },
+    { name: '首次关注', description: '关注一个用户', type: 'once', xpReward: 20 },
+
+    // 成就系统 (27个)
+    { name: '新手上路', description: '完成首次签到', type: 'achievement', xpReward: 50 },
+    { name: '连续7天', description: '连续签到7天', type: 'achievement', xpReward: 200 },
+    { name: '连续30天', description: '连续签到30天', type: 'achievement', xpReward: 500 },
+    { name: '作品达人', description: '发布10个作品', type: 'achievement', xpReward: 300 },
+    { name: '人气作者', description: '作品获得100个赞', type: 'achievement', xpReward: 500 },
+    { name: '评论家', description: '发表评论50次', type: 'achievement', xpReward: 200 },
+    { name: '社交达人', description: '关注20个用户', type: 'achievement', xpReward: 300 },
+    { name: '粉丝过百', description: '拥有100个粉丝', type: 'achievement', xpReward: 400 },
+    { name: '收藏家', description: '收藏10个作品', type: 'achievement', xpReward: 150 },
+    { name: '资深驾驶员', description: '达到10级', type: 'achievement', xpReward: 200 },
+    { name: '老兵', description: '达到20级', type: 'achievement', xpReward: 400 },
+    { name: '元帅', description: '达到30级', type: 'achievement', xpReward: 1000 },
+    { name: '高达专家', description: '浏览所有系列高达', type: 'achievement', xpReward: 300 },
+    { name: '配色大师', description: '使用5种配色方案', type: 'achievement', xpReward: 150 },
+    { name: '首充用户', description: '完成首次订阅', type: 'achievement', xpReward: 300 },
+    { name: '赞助者', description: '连续订阅3个月', type: 'achievement', xpReward: 500 },
+    { name: '卡牌收藏家', description: '收集20种不同卡牌', type: 'achievement', xpReward: 400 },
+    { name: '完美主义', description: '补签卡数量达到10张', type: 'achievement', xpReward: 300 },
+    { name: '捕虫专家', description: '发现并报告5个bug', type: 'achievement', xpReward: 500 },
+    { name: '管理员认可', description: '被管理员推荐', type: 'achievement', xpReward: 300 },
+    { name: '版本先驱', description: '参与内测', type: 'achievement', xpReward: 200 },
+    { name: '资料完善者', description: '上传头像并填写简介', type: 'achievement', xpReward: 100 },
+    { name: '活跃分子', description: '连续30天活跃', type: 'achievement', xpReward: 600 },
+    { name: '社区支柱', description: '被100个不同用户关注', type: 'achievement', xpReward: 800 },
+    { name: '传说级', description: '拥有10000总XP', type: 'achievement', xpReward: 1000 },
+    { name: '全成就（半步）', description: '解锁50%成就', type: 'achievement', xpReward: 1500 },
+    { name: '全成就达成', description: '解锁100%成就', type: 'achievement', xpReward: 3000 },
   ];
 
   for (const mission of missions) {
@@ -280,7 +312,7 @@ async function main() {
       data: mission,
     });
   }
-  console.log('Created missions');
+  console.log('Created missions and achievements');
 
   // ==================== 4.6 创建机体参数和配色 ====================
   const mechaData = [
@@ -406,6 +438,50 @@ async function main() {
     }
   }
   console.log('Created mecha specs and palettes');
+
+  // ==================== 4.7 创建卡牌数据 ====================
+  const cards = [
+    // 普通卡 - common
+    { name: 'RX-78-2 元祖高达', rarity: 'common', series: 'RX-78', description: '一年战争时期联邦军的王牌机体' },
+    { name: '扎古II', rarity: 'common', series: 'MS-06', description: '吉恩军的经典量产型机体' },
+    { name: '高达mk-II', rarity: 'common', series: 'Z', description: '奥古的主力机体' },
+    { name: '沙漠型扎古', rarity: 'common', series: 'MS-06', description: '适合沙漠作战的扎古改型' },
+    { name: '水中型扎古', rarity: 'common', series: 'MS-06', description: '专用于水中作战的机型' },
+
+    // 稀有卡 - rare
+    { name: '自由高达', rarity: 'rare', series: 'Seed', description: '扎夫特的NT专用机' },
+    { name: '正义高达', rarity: 'rare', series: 'Seed', description: '自由高达的兄弟机' },
+    { name: '神高达', rarity: 'rare', series: 'G', description: '东方不败的究极格斗机体' },
+    { name: '飞翼高达', rarity: 'rare', series: 'W', description: '零式系统搭载机' },
+    { name: '重武装高达', rarity: 'rare', series: 'W', description: '重火力支援型机体' },
+
+    // 史诗卡 - epic
+    { name: '独角兽高达', rarity: 'epic', series: 'UC', description: '精神感应框架NT专用机' },
+    { name: '新安洲', rarity: 'epic', series: 'UC', description: '夏亚的最终座驾' },
+    { name: '沙扎比', rarity: 'epic', series: 'CCA', description: '阿姆罗的最后机体' },
+    { name: '强袭自由高达', rarity: 'epic', series: 'Seed Destiny', description: '自由高达的后继机' },
+    { name: '命运高达', rarity: 'epic', series: 'Seed Destiny', description: '真·飞鸟的专用机' },
+
+    // 传说卡 - legendary
+    { name: 'ν高达', rarity: 'legendary', series: '逆夏', description: '阿姆罗的最终机体，带有精神感应框架' },
+    { name: '夜莺', rarity: 'legendary', series: '逆夏', description: '夏亚的专用机，巨型MA' },
+    { name: '完美高达', rarity: 'legendary', series: 'F91', description: '生物传感器测试机' },
+    { name: 'ν高达νS型', rarity: 'legendary', series: '逆夏', description: 'ν高达的强化改装型' },
+    { name: 'Hi-ν高达', rarity: 'legendary', series: '逆夏', description: 'Hi-V高达的最终决战装备' },
+  ];
+
+  for (const card of cards) {
+    await prisma.card.upsert({
+      where: { id: card.name },
+      update: {},
+      create: {
+        id: card.name,
+        ...card,
+        imageUrl: null,
+      },
+    });
+  }
+  console.log('Created card collection');
 
   // ==================== 5. 创建Banner ====================
   await prisma.banner.create({
