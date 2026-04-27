@@ -1,0 +1,517 @@
+// GUNDAM SITE 数据库 Schema
+// 基于设计文档第十一章
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== 用户系统 ====================
+
+model User {
+  id            String   @id @default(cuid())
+  username      String   @unique @db.VarChar(50)
+  password      String   @db.VarChar(255)
+  nickname      String   @db.VarChar(100)
+  email         String?  @db.VarChar(255)
+  avatar        String?  @db.VarChar(500)
+  role          String   @default("user")
+  level         Int      @default(1)
+  totalXp       Int      @default(0)
+  status        String   @default("active")
+  banReason     String?  @db.Text
+  banExpireAt   DateTime?
+  isDeleted     Boolean  @default(false)
+  checkinCards  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  followers     Follow[]   @relation("UserFollower")
+  following     Follow[]   @relation("UserFollowing")
+  blockedUsers  Blacklist[] @relation("UserBlocker")
+  blockedBy     Blacklist[] @relation("UserBlocked")
+  sentMessages  Message[]   @relation("MessageSender")
+  receivedMessages Message[] @relation("MessageReceiver")
+  creations     Creation[]
+  comments      Comment[]
+  likes         Like[]
+  collects      Collect[]
+  userMissions  UserMission[]
+  userStats     UserStats?
+  checkins      Checkin[]
+  reports       Report[]
+  notifications Notification[]
+  subscriptions Subscription[]
+  orders        Order[]
+  userCards     UserCard[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower    User @relation("UserFollower", fields: [followerId], references: [id])
+  following   User @relation("UserFollowing", fields: [followingId], references: [id])
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model Blacklist {
+  id            String   @id @default(cuid())
+  userId        String
+  blockedUserId String
+  createdAt     DateTime @default(now())
+
+  user        User @relation("UserBlocker", fields: [userId], references: [id])
+  blockedUser User @relation("UserBlocked", fields: [blockedUserId], references: [id])
+
+  @@unique([userId, blockedUserId])
+  @@index([userId])
+  @@index([blockedUserId])
+}
+
+// ==================== 私信系统 ====================
+
+model Message {
+  id          String   @id @default(cuid())
+  fromUserId  String
+  toUserId    String
+  content     String   @db.Text
+  isRead      Boolean  @default(false)
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  fromUser User @relation("MessageSender", fields: [fromUserId], references: [id])
+  toUser   User @relation("MessageReceiver", fields: [toUserId], references: [id])
+
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([createdAt])
+}
+
+// ==================== 机体系统 ====================
+
+model Mecha {
+  id              String   @id @default(cuid())
+  name            String   @db.VarChar(100)
+  series          String?  @db.VarChar(100)
+  grade           String?  @db.VarChar(50)
+  classification  String?  @db.VarChar(50)
+  coverImage      String?  @db.VarChar(500)
+  summary         String?  @db.Text
+  height          String?  @db.VarChar(50)
+  weight          String?  @db.VarChar(50)
+  powerSystem     String?  @db.VarChar(100)
+  armor           String?  @db.Text
+  contentSource   String   @default("official")
+  status          String   @default("active")
+  isDeleted       Boolean  @default(false)
+  likeCount       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  specs       MechaSpec[]
+  palettes    PaletteScheme[]
+  creations   Creation[]
+
+  @@index([series])
+  @@index([grade])
+  @@index([classification])
+  @@index([status])
+}
+
+model MechaSpec {
+  id        String   @id @default(cuid())
+  mechaId   String
+  specKey   String   @db.VarChar(100)
+  specValue String   @db.VarChar(500)
+
+  mecha Mecha @relation(fields: [mechaId], references: [id], onDelete: Cascade)
+
+  @@index([mechaId])
+}
+
+model PaletteScheme {
+  id              String   @id @default(cuid())
+  mechaId         String
+  name            String   @db.VarChar(100)
+  primaryColor    String?  @db.VarChar(20)
+  secondaryColor  String?  @db.VarChar(20)
+  accentColor     String?  @db.VarChar(20)
+  image           String?  @db.VarChar(500)
+
+  mecha Mecha @relation(fields: [mechaId], references: [id], onDelete: Cascade)
+
+  @@index([mechaId])
+}
+
+// ==================== 作品系统 ====================
+
+model Creation {
+  id              String   @id @default(cuid())
+  authorId        String
+  title           String   @db.VarChar(200)
+  content         String?  @db.Text
+  relatedMechaId  String?
+  tags            String?  @db.Text
+  copyrightType   String   @default("original")
+  status          String   @default("pending")
+  viewCount       Int      @default(0)
+  likeCount       Int      @default(0)
+  collectCount    Int      @default(0)
+  isDeleted       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  author    User             @relation(fields: [authorId], references: [id])
+  mecha     Mecha?          @relation(fields: [relatedMechaId], references: [id])
+  images    CreationImage[]
+
+  @@index([authorId])
+  @@index([relatedMechaId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model CreationImage {
+  id          String   @id @default(cuid())
+  creationId  String
+  type        String   @db.VarChar(20)
+  url         String   @db.VarChar(500)
+  size        Int?
+  width       Int?
+  height      Int?
+  sortOrder   Int      @default(0)
+
+  creation Creation @relation(fields: [creationId], references: [id], onDelete: Cascade)
+
+  @@index([creationId])
+}
+
+// ==================== 互动系统 ====================
+
+model Comment {
+  id          String   @id @default(cuid())
+  userId      String
+  targetType  String   @db.VarChar(20)
+  targetId    String
+  parentId    String?
+  content     String   @db.Text
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user              User        @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
+
+model Like {
+  id          String   @id @default(cuid())
+  userId      String
+  targetType  String   @db.VarChar(20)
+  targetId    String
+  createdAt   DateTime @default(now())
+
+  user             User        @relation(fields: [userId], references: [id])
+
+  @@unique([userId, targetType, targetId])
+  @@index([userId])
+  @@index([targetType, targetId])
+}
+
+model Collect {
+  id          String   @id @default(cuid())
+  userId      String
+  targetType  String   @db.VarChar(20)
+  targetId    String
+  createdAt   DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id])
+
+  @@unique([userId, targetType, targetId])
+  @@index([userId])
+  @@index([targetType, targetId])
+}
+
+// ==================== 任务系统 ====================
+
+model Mission {
+  id          String   @id @default(cuid())
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  type        String   @db.VarChar(20)
+  xpReward    Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  userMissions UserMission[]
+
+  @@index([type])
+}
+
+model UserMission {
+  id          String    @id @default(cuid())
+  userId      String
+  missionId   String
+  progress    Int       @default(0)
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  date        DateTime  @db.Date
+
+  user    User    @relation(fields: [userId], references: [id])
+  mission Mission @relation(fields: [missionId], references: [id])
+
+  @@unique([userId, missionId, date])
+  @@index([userId])
+  @@index([missionId])
+  @@index([date])
+}
+
+// 每日签到记录
+model Checkin {
+  id           String   @id @default(cuid())
+  userId       String
+  checkinDate  DateTime @db.Date
+  xpEarned     Int      @default(0)
+  cardEarned   String?  // 获得的卡牌 ID（如果有）
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, checkinDate])
+  @@index([userId])
+  @@index([checkinDate])
+}
+
+model Level {
+  id            String   @id @default(cuid())
+  level         Int      @unique
+  name          String   @db.VarChar(50)
+  xpRequired    Int
+  titleRequired String?  @db.VarChar(50)
+  creationCount Int      @default(0)
+  commentCount  Int      @default(0)
+  likeCount     Int      @default(0)
+  unlockedAt    DateTime?
+}
+
+model UserStats {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  totalXp             Int      @default(0)
+  level               Int      @default(1)
+  checkinDays         Int      @default(0)
+  consecutiveDays      Int      @default(0)
+  bestConsecutiveDays Int      @default(0)
+  creationCount        Int      @default(0)
+  commentCount         Int      @default(0)
+  likedCount           Int      @default(0)
+  followerCount        Int      @default(0)
+  updatedAt            DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([totalXp])
+  @@index([level])
+}
+
+// ==================== 审核系统 ====================
+
+model Report {
+  id          String    @id @default(cuid())
+  reporterId  String
+  targetType  String    @db.VarChar(20)
+  targetId    String
+  reason      String    @db.Text
+  status      String    @default("pending")
+  handlerId   String?
+  result      String?   @db.Text
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  reporter User @relation(fields: [reporterId], references: [id])
+
+  @@index([status])
+  @@index([targetType, targetId])
+}
+
+model AuditQueue {
+  id           String    @id @default(cuid())
+  contentType  String    @db.VarChar(20)
+  contentId    String
+  submitterId  String
+  status       String    @default("pending")
+  reviewerId   String?
+  reviewNote   String?   @db.Text
+  createdAt    DateTime  @default(now())
+  reviewedAt   DateTime?
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ==================== 通知系统 ====================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   @db.VarChar(50)
+  title     String   @db.VarChar(200)
+  content   String?  @db.Text
+  data      String?  @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// ==================== 订阅系统 ====================
+
+model Subscription {
+  id        String    @id @default(cuid())
+  userId    String
+  tier      String    @db.VarChar(20)
+  status    String    @default("active")
+  startAt   DateTime
+  expireAt  DateTime
+  autoRenew Boolean   @default(true)
+  orderId   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([expireAt])
+}
+
+model Order {
+  id             String    @id @default(cuid())
+  userId         String
+  tier           String    @db.VarChar(20)
+  amount         Decimal   @db.Decimal(10, 2)
+  paymentMethod  String?   @db.VarChar(20)
+  status         String    @default("pending")
+  transactionId  String?   @db.VarChar(100)
+  paidAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ==================== 系统配置 ====================
+
+model Banner {
+  id        String   @id @default(cuid())
+  imageUrl  String   @db.VarChar(500)
+  link      String?  @db.VarChar(500)
+  sortOrder Int      @default(0)
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+
+  @@index([status])
+  @@index([sortOrder])
+}
+
+model Announcement {
+  id          String    @id @default(cuid())
+  title       String    @db.VarChar(200)
+  content     String    @db.Text
+  isTop       Boolean   @default(false)
+  status      String    @default("published")
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status])
+  @@index([isTop])
+  @@index([publishedAt])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(100)
+  parentId  String?
+  sortOrder Int      @default(0)
+  isDeleted Boolean  @default(false)
+
+  @@index([parentId])
+  @@index([sortOrder])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(50)
+  useCount  Int      @default(0)
+  isDeleted Boolean  @default(false)
+
+  @@unique([name])
+  @@index([useCount])
+}
+
+// ==================== 卡牌系统 ====================
+
+model Card {
+  id          String   @id @default(cuid())
+  name        String   @db.VarChar(100)
+  rarity      String   @db.VarChar(20)
+  series      String?  @db.VarChar(100)
+  imageUrl    String?  @db.VarChar(500)
+  description String?  @db.Text
+
+  userCards UserCard[]
+
+  @@index([rarity])
+  @@index([series])
+}
+
+model UserCard {
+  id         String   @id @default(cuid())
+  userId     String
+  cardId     String
+  obtainedAt DateTime @default(now())
+  count      Int      @default(1)
+
+  user User @relation(fields: [userId], references: [id])
+  card Card @relation(fields: [cardId], references: [id])
+
+  @@unique([userId, cardId])
+  @@index([userId])
+  @@index([cardId])
+}
+
+// 作品浏览记录（用于去重计数）
+model ViewHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  targetType  String   @db.VarChar(20)  // 'creation' | 'mecha'
+  targetId    String
+  viewedAt    DateTime @default(now())
+
+  @@unique([userId, targetType, targetId])
+  @@index([userId])
+  @@index([targetType, targetId])
+}
