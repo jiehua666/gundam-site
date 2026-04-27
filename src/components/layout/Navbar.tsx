@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Moon, Sun, Menu, X, Search } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { useAppTheme } from "@/components/Providers";
+import NotificationDropdown from "@/components/notifications/NotificationDropdown";
 
 export default function Navbar() {
   const router = useRouter();
@@ -105,14 +106,31 @@ export default function Navbar() {
               )}
             </button>
 
+            {/* Notifications - only show when authenticated */}
+            {isAuthenticated && <NotificationDropdown />}
+
             {/* User Menu */}
             {isAuthenticated && user ? (
-              <Link
-                href="/settings"
-                className="px-4 py-2 rounded-lg cyber-button text-sm"
-              >
-                {user.nickname}
-              </Link>
+              <div className="relative group">
+                <button className="px-4 py-2 rounded-lg cyber-button text-sm flex items-center gap-2">
+                  {user.nickname}
+                </button>
+                {/* Dropdown */}
+                <div className="absolute right-0 top-full mt-1 w-40 bg-card rounded-xl border border-border shadow-xl overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                  <Link
+                    href={`/users/${user.id}`}
+                    className="block px-4 py-2 text-sm text-foreground hover:bg-primary/10 transition"
+                  >
+                    个人主页
+                  </Link>
+                  <Link
+                    href="/settings"
+                    className="block px-4 py-2 text-sm text-foreground hover:bg-primary/10 transition"
+                  >
+                    设置
+                  </Link>
+                </div>
+              </div>
             ) : (
               <div className="hidden md:flex items-center gap-2">
                 <Link
