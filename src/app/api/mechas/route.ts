@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { getCurrentUser, isAdmin } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -83,5 +84,70 @@ export async function GET(request: NextRequest) {
       { error: 'Internal server error' },
       { status: 500 }
     );
+  }
+}
+
+// POST /api/mechas - 创建机体
+export async function POST(request: NextRequest) {
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser || !isAdmin(currentUser.role)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const {
+      name,
+      series,
+      grade,
+      classification,
+      coverImage,
+      summary,
+      height,
+      weight,
+      powerSystem,
+      armor,
+      specs,
+      palettes,
+    } = body;
+
+    if (!name) {
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+    }
+
+    const mecha = await prisma.mecha.create({
+      data: {
+        name,
+        series: series || null,
+        grade: grade || null,
+        classification: classification || null,
+        coverImage: coverImage || null,
+        summary: summary || null,
+        height: height || null,
+        weight: weight || null,
+        powerSystem: powerSystem || null,
+        armor: armor || null,
+        status: 'active',
+        specs: specs ? {
+          create: specs.map((s: { specKey: string; specValue: string }) => ({
+            specKey: s.specKey,
+            specValue: s.specValue,
+          })),
+        } : undefined,
+        palettes: palettes ? {
+          create: palettes.map((p: { name: string; primaryColor?: string; secondaryColor?: string; accentColor?: string }) => ({
+            name: p.name,
+            primaryColor: p.primaryColor || null,
+            secondaryColor: p.secondaryColor || null,
+            accentColor: p.accentColor || null,
+          })),
+        } : undefined,
+      },
+    });
+
+    return NextResponse.json({ mecha }, { status: 201 });
+  } catch (error) {
+    console.error('POST /api/mechas error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

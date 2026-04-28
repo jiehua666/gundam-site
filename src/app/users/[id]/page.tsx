@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Calendar, MessageSquare, Heart, Eye, Star, Users, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, Calendar, MessageSquare, Heart, Eye, Star, Users, FileText, Loader2, UserPlus, UserMinus } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 
 interface User {
@@ -49,6 +49,7 @@ interface Creation {
 
 export default function UserProfilePage() {
   const params = useParams();
+  const router = useRouter();
   const userId = params.id as string;
   const { user: currentUser, isAuthenticated } = useAuthStore();
 
@@ -56,6 +57,8 @@ export default function UserProfilePage() {
   const [creations, setCreations] = useState<Creation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"creations" | "about">("creations");
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
 
   const isOwnProfile = currentUser?.id === userId;
 
@@ -63,8 +66,11 @@ export default function UserProfilePage() {
     if (userId) {
       fetchUser();
       fetchCreations();
+      if (isAuthenticated) {
+        checkFollowStatus();
+      }
     }
-  }, [userId]);
+  }, [userId, isAuthenticated]);
 
   const fetchUser = async () => {
     setIsLoading(true);
@@ -91,6 +97,55 @@ export default function UserProfilePage() {
     } catch (error) {
       console.error("Failed to fetch creations:", error);
     }
+  };
+
+  const checkFollowStatus = async () => {
+    try {
+      const res = await fetch(`/api/follows?check=${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setIsFollowing(data.following);
+      }
+    } catch (error) {
+      console.error("Failed to check follow status:", error);
+    }
+  };
+
+  const handleFollow = async () => {
+    if (!isAuthenticated) {
+      router.push("/login");
+      return;
+    }
+
+    setIsFollowLoading(true);
+    try {
+      const method = isFollowing ? "DELETE" : "POST";
+      const res = await fetch("/api/follows", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId: userId }),
+      });
+
+      if (res.ok) {
+        setIsFollowing(!isFollowing);
+        setUser((prev) => prev ? {
+          ...prev,
+          followerCount: isFollowing ? prev.followerCount - 1 : prev.followerCount + 1,
+        } : null);
+      }
+    } catch (error) {
+      console.error("Failed to follow/unfollow:", error);
+    } finally {
+      setIsFollowLoading(false);
+    }
+  };
+
+  const handleMessage = () => {
+    if (!isAuthenticated) {
+      router.push("/login");
+      return;
+    }
+    router.push(`/messages?with=${userId}`);
   };
 
   const formatDate = (dateString: string) => {
@@ -242,9 +297,38 @@ export default function UserProfilePage() {
                     编辑资料
                   </Link>
                 ) : isAuthenticated ? (
-                  <button className="px-4 py-2 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition text-sm">
-                    关注
-                  </button>
+                  <>
+                    <button
+                      onClick={handleFollow}
+                      disabled={isFollowLoading}
+                      className={`px-4 py-2 rounded-lg transition text-sm flex items-center gap-2 ${
+                        isFollowing
+                          ? "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                          : "cyber-button"
+                      }`}
+                    >
+                      {isFollowLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : isFollowing ? (
+                        <>
+                          <UserMinus className="w-4 h-4" />
+                          已关注
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-4 h-4" />
+                          关注
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={handleMessage}
+                      className="px-4 py-2 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition text-sm flex items-center gap-2"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      发私信
+                    </button>
+                  </>
                 ) : (
                   <Link
                     href="/login"

@@ -21,6 +21,7 @@ interface Comment {
   content: string;
   createdAt: string;
   user: CommentUser;
+  replies?: Comment[];
 }
 
 interface CommentsSectionProps {
@@ -130,6 +131,75 @@ export default function CommentsSection({ targetType, targetId, currentUserId }:
     return `查看全部 ${totalPages * 10}+ 评论`;
   };
 
+  // 递归渲染嵌套评论
+  const renderComment = (comment: Comment, isReply = false) => {
+    return (
+      <div key={comment.id} className={`flex gap-3 ${isReply ? "mt-3 ml-4 pl-4 border-l-2 border-primary/20" : ""}`}>
+        {/* Avatar */}
+        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0">
+          {comment.user.avatar ? (
+            <Image
+              src={comment.user.avatar}
+              alt={comment.user.nickname}
+              width={40}
+              height={40}
+              className="object-cover"
+            />
+          ) : (
+            <span className="text-lg text-primary font-bold">
+              {comment.user.nickname?.[0] || "U"}
+            </span>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-medium text-foreground">
+              {comment.user.nickname}
+            </span>
+            <span className="text-xs text-muted-foreground bg-primary/10 px-1.5 py-0.5 rounded">
+              Lv.{comment.user.level}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {formatDate(comment.createdAt)}
+            </span>
+          </div>
+          <p className="text-foreground/90 text-sm whitespace-pre-wrap break-words">
+            {comment.content}
+          </p>
+          <div className="flex items-center gap-4 mt-2">
+            {/* Reply button */}
+            <button
+              onClick={() => setReplyingTo(comment)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+            >
+              <Reply className="w-3 h-3" />
+              回复
+            </button>
+            {/* Delete button - only for owner or admin */}
+            {(currentUserId === comment.userId || currentUserId) && (
+              <button
+                onClick={() => handleDelete(comment.id)}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <Trash2 className="w-3 h-3" />
+                删除
+              </button>
+            )}
+          </div>
+
+          {/* Nested Replies */}
+          {comment.replies && comment.replies.length > 0 && (
+            <div className="mt-2">
+              {comment.replies.map((reply) => renderComment(reply, true))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="glass-card neon-border rounded-xl p-6">
       <h3 className="font-bold text-lg text-foreground mb-4">
@@ -184,64 +254,7 @@ export default function CommentsSection({ targetType, targetId, currentUserId }:
         </div>
       ) : (
         <div className="space-y-4">
-          {comments.map((comment) => (
-            <div key={comment.id} className="flex gap-3">
-              {/* Avatar */}
-              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0">
-                {comment.user.avatar ? (
-                  <Image
-                    src={comment.user.avatar}
-                    alt={comment.user.nickname}
-                    width={40}
-                    height={40}
-                    className="object-cover"
-                  />
-                ) : (
-                  <span className="text-lg text-primary font-bold">
-                    {comment.user.nickname?.[0] || "U"}
-                  </span>
-                )}
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-medium text-foreground">
-                    {comment.user.nickname}
-                  </span>
-                  <span className="text-xs text-muted-foreground bg-primary/10 px-1.5 py-0.5 rounded">
-                    Lv.{comment.user.level}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {formatDate(comment.createdAt)}
-                  </span>
-                </div>
-                <p className="text-foreground/90 text-sm whitespace-pre-wrap break-words">
-                  {comment.content}
-                </p>
-                <div className="flex items-center gap-4 mt-2">
-                  {/* Reply button */}
-                  <button
-                    onClick={() => setReplyingTo(comment)}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <Reply className="w-3 h-3" />
-                    回复
-                  </button>
-                  {/* Delete button - only for owner or admin */}
-                  {(currentUserId === comment.userId || currentUserId) && (
-                    <button
-                      onClick={() => handleDelete(comment.id)}
-                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      删除
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+          {comments.map((comment) => renderComment(comment))}
 
           {/* Load More */}
           {page < totalPages && (

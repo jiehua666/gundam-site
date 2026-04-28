@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 
-// GET /api/follows?type=followers&userId=xxx
-// GET /api/follows?type=following&userId=xxx
-// GET /api/follows?check=targetId
+// GET /api/follows?userId=xxx - Get user's following list
+// GET /api/follows?check=targetId - Check if current user is following target
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type');
     const userId = searchParams.get('userId');
     const checkTargetId = searchParams.get('check');
 
@@ -31,49 +29,40 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
     }
 
-    if (type === 'followers') {
-      const followers = await prisma.follow.findMany({
-        where: { followingId: userId },
-        include: {
-          follower: {
-            select: {
-              id: true,
-              username: true,
-              nickname: true,
-              avatar: true,
-              level: true,
-            },
+    // Get following list for user
+    const following = await prisma.follow.findMany({
+      where: { followerId: userId },
+      include: {
+        following: {
+          select: {
+            id: true,
+            username: true,
+            nickname: true,
+            avatar: true,
+            level: true,
           },
         },
-        orderBy: { createdAt: 'desc' },
-      });
-      return NextResponse.json({
-        users: followers.map((f) => f.follower),
-      });
-    }
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-    if (type === 'following') {
-      const following = await prisma.follow.findMany({
-        where: { followerId: userId },
-        include: {
-          following: {
-            select: {
-              id: true,
-              username: true,
-              nickname: true,
-              avatar: true,
-              level: true,
-            },
-          },
+    // If current user is logged in, check if they follow each user in the list
+    let users = following.map((f) => f.following);
+    if (currentUser) {
+      const followings = await prisma.follow.findMany({
+        where: {
+          followerId: currentUser.userId,
+          followingId: { in: users.map((u) => u.id) },
         },
-        orderBy: { createdAt: 'desc' },
       });
-      return NextResponse.json({
-        users: following.map((f) => f.following),
-      });
+      const followingIds = new Set(followings.map((f) => f.followingId));
+      users = users.map((u) => ({
+        ...u,
+        isFollowing: followingIds.has(u.id),
+      }));
     }
 
-    return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
+    return NextResponse.json({ users });
   } catch (error) {
     console.error('GET /api/follows error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -81,6 +70,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/follows - Follow a user
+// Body: { targetUserId: string }
 export async function POST(request: NextRequest) {
   try {
     const currentUser = await getCurrentUser();
@@ -89,19 +79,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { targetId } = body;
+    const { targetUserId } = body;
 
-    if (!targetId) {
-      return NextResponse.json({ error: 'Missing targetId' }, { status: 400 });
+    if (!targetUserId) {
+      return NextResponse.json({ error: 'Missing targetUserId' }, { status: 400 });
     }
 
-    if (targetId === currentUser.userId) {
+    if (targetUserId === currentUser.userId) {
       return NextResponse.json({ error: 'Cannot follow yourself' }, { status: 400 });
     }
 
     // Check if user exists
     const targetUser = await prisma.user.findUnique({
-      where: { id: targetId },
+      where: { id: targetUserId },
     });
 
     if (!targetUser) {
@@ -113,7 +103,7 @@ export async function POST(request: NextRequest) {
       where: {
         followerId_followingId: {
           followerId: currentUser.userId,
-          followingId: targetId,
+          followingId: targetUserId,
         },
       },
     });
@@ -125,15 +115,15 @@ export async function POST(request: NextRequest) {
     await prisma.follow.create({
       data: {
         followerId: currentUser.userId,
-        followingId: targetId,
+        followingId: targetUserId,
       },
     });
 
     // Update follower count for target user
     await prisma.userStats.upsert({
-      where: { userId: targetId },
+      where: { userId: targetUserId },
       update: { followerCount: { increment: 1 } },
-      create: { userId: targetId, followerCount: 1 },
+      create: { userId: targetUserId, followerCount: 1 },
     });
 
     return NextResponse.json({ success: true }, { status: 201 });
@@ -143,7 +133,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE /api/follows?targetId=xxx - Unfollow a user
+// DELETE /api/follows - Unfollow a user
+// Body: { targetUserId: string }
 export async function DELETE(request: NextRequest) {
   try {
     const currentUser = await getCurrentUser();
@@ -151,18 +142,18 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const targetId = searchParams.get('targetId');
+    const body = await request.json();
+    const { targetUserId } = body;
 
-    if (!targetId) {
-      return NextResponse.json({ error: 'Missing targetId' }, { status: 400 });
+    if (!targetUserId) {
+      return NextResponse.json({ error: 'Missing targetUserId' }, { status: 400 });
     }
 
     const follow = await prisma.follow.findUnique({
       where: {
         followerId_followingId: {
           followerId: currentUser.userId,
-          followingId: targetId,
+          followingId: targetUserId,
         },
       },
     });
@@ -177,7 +168,7 @@ export async function DELETE(request: NextRequest) {
 
     // Update follower count for target user
     await prisma.userStats.update({
-      where: { userId: targetId },
+      where: { userId: targetUserId },
       data: { followerCount: { decrement: 1 } },
     });
 

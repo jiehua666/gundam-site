@@ -4,12 +4,21 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/lib/store";
-import { ArrowLeft, Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
+import { ArrowLeft, Upload, X, Image as ImageIcon, Loader2, Bold, Italic, Link as LinkIcon, List, Quote, Code } from "lucide-react";
 
 interface Mecha {
   id: string;
   name: string;
   series: string;
+}
+
+// Rich text editor toolbar button interface
+interface ToolbarButton {
+  icon: React.ReactNode;
+  label: string;
+  active?: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
 }
 
 export default function NewCreationPage() {
@@ -165,15 +174,72 @@ export default function NewCreationPage() {
 
               <div>
                 <label className="block text-foreground font-medium mb-2">
-                  作品描述
+                  作品描述 <span className="text-xs text-muted-foreground">(富文本编辑器预留入口)</span>
                 </label>
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="介绍一下你的作品..."
-                  rows={4}
-                  className="w-full px-4 py-3 rounded-lg border border-input bg-card text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent outline-none resize-none"
-                />
+                {/* Rich Text Editor Placeholder */}
+                <div className="rounded-lg border border-input bg-card overflow-hidden focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all">
+                  {/* Toolbar */}
+                  <div className="flex items-center gap-1 px-3 py-2 border-b border-input bg-muted/30">
+                    <button
+                      type="button"
+                      className="p-1.5 rounded hover:bg-primary/20 text-muted-foreground hover:text-foreground transition disabled:opacity-50"
+                      title="粗体"
+                      disabled
+                    >
+                      <Bold className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-1.5 rounded hover:bg-primary/20 text-muted-foreground hover:text-foreground transition disabled:opacity-50"
+                      title="斜体"
+                      disabled
+                    >
+                      <Italic className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-1.5 rounded hover:bg-primary/20 text-muted-foreground hover:text-foreground transition disabled:opacity-50"
+                      title="链接"
+                      disabled
+                    >
+                      <LinkIcon className="w-4 h-4" />
+                    </button>
+                    <div className="w-px h-4 bg-border mx-1" />
+                    <button
+                      type="button"
+                      className="p-1.5 rounded hover:bg-primary/20 text-muted-foreground hover:text-foreground transition disabled:opacity-50"
+                      title="列表"
+                      disabled
+                    >
+                      <List className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-1.5 rounded hover:bg-primary/20 text-muted-foreground hover:text-foreground transition disabled:opacity-50"
+                      title="引用"
+                      disabled
+                    >
+                      <Quote className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-1.5 rounded hover:bg-primary/20 text-muted-foreground hover:text-foreground transition disabled:opacity-50"
+                      title="代码"
+                      disabled
+                    >
+                      <Code className="w-4 h-4" />
+                    </button>
+                    <span className="ml-auto text-xs text-muted-foreground">富文本功能开发中</span>
+                  </div>
+                  {/* Textarea */}
+                  <textarea
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="介绍一下你的作品...（富文本编辑器预留入口）"
+                    rows={6}
+                    className="w-full px-4 py-3 bg-transparent text-foreground placeholder:text-muted-foreground outline-none resize-none"
+                  />
+                </div>
               </div>
 
               <div>

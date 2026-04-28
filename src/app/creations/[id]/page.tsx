@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Heart, Bookmark, Share2, Eye, Calendar } from "lucide-react";
+import { ArrowLeft, Heart, Bookmark, Share2, Eye, Calendar, Edit } from "lucide-react";
 import CommentsSection from "@/components/creations/CommentsSection";
+import { useAuthStore } from "@/lib/store";
 
 interface CreationImage {
   id: string;
@@ -50,6 +51,7 @@ interface Creation {
 export default function CreationDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const { user } = useAuthStore();
   const [creation, setCreation] = useState<Creation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -59,6 +61,9 @@ export default function CreationDetailPage() {
   const [localLikeCount, setLocalLikeCount] = useState(0);
   const [localCollectCount, setLocalCollectCount] = useState(0);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [likeAnimation, setLikeAnimation] = useState(false);
+  const isAdmin = user?.role === 'admin' || user?.role === 'founder';
+  const canEdit = user && (currentUserId === creation?.author?.id || isAdmin);
 
   useEffect(() => {
     // Get current user from auth store
@@ -132,6 +137,9 @@ export default function CreationDetailPage() {
         if (res.ok) {
           setIsLiked(true);
           setLocalLikeCount((c) => c + 1);
+          // Trigger heart animation
+          setLikeAnimation(true);
+          setTimeout(() => setLikeAnimation(false), 600);
         } else {
           const data = await res.json();
           console.error('Like failed:', data.error);
@@ -261,7 +269,7 @@ export default function CreationDetailPage() {
                     : 'border border-primary/30 text-foreground hover:bg-primary/10'
                 } transition`}
               >
-                <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+                <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''} ${likeAnimation ? 'animate-like-burst' : ''}`} />
                 {localLikeCount}
               </button>
               <button
@@ -278,6 +286,15 @@ export default function CreationDetailPage() {
               <button className="px-4 py-2 rounded-lg border border-primary/30 text-foreground hover:bg-primary/10 transition">
                 <Share2 className="w-5 h-5" />
               </button>
+              {canEdit && (
+                <Link
+                  href={`/creations/${id}/edit`}
+                  className="px-4 py-2 rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition flex items-center gap-2"
+                >
+                  <Edit className="w-5 h-5" />
+                  编辑
+                </Link>
+              )}
             </div>
           </div>
         </div>

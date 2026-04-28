@@ -40,6 +40,11 @@ export async function getCurrentUser() {
   return verifyToken(token);
 }
 
+// 检查是否为管理员或创始人
+export function isAdmin(role: string | undefined): boolean {
+  return role === 'admin' || role === 'founder';
+}
+
 export function setAuthCookie(token: string): { name: string; value: string; httpOnly: boolean; secure: boolean; sameSite: 'lax'; path: string; maxAge: number } {
   return {
     name: 'auth_token',

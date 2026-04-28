@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { sendInteractionNotification } from '@/lib/notifications';
 
 // GET /api/comments?targetType=creation&targetId=xxx
 export async function GET(request: NextRequest) {
@@ -17,39 +18,59 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
     const skip = (page - 1) * limit;
 
-    const [comments, total] = await Promise.all([
-      prisma.comment.findMany({
-        where: {
-          targetType,
-          targetId,
-          isDeleted: false,
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              nickname: true,
-              avatar: true,
-              level: true,
-            },
+    // Get all comments for this target (for building tree)
+    const allComments = await prisma.comment.findMany({
+      where: {
+        targetType,
+        targetId,
+        isDeleted: false,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            nickname: true,
+            avatar: true,
+            level: true,
           },
         },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      prisma.comment.count({
-        where: {
-          targetType,
-          targetId,
-          isDeleted: false,
-        },
-      }),
-    ]);
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const total = allComments.length;
+
+    // Build nested comment tree
+    const commentMap = new Map();
+    const rootComments: any[] = [];
+
+    // First pass: create comment objects with empty children
+    allComments.forEach((comment) => {
+      commentMap.set(comment.id, { ...comment, replies: [] });
+    });
+
+    // Second pass: build tree structure
+    allComments.forEach((comment) => {
+      const commentWithReplies = commentMap.get(comment.id);
+      if (comment.parentId && commentMap.has(comment.parentId)) {
+        commentMap.get(comment.parentId).replies.push(commentWithReplies);
+      } else {
+        rootComments.push(commentWithReplies);
+      }
+    });
+
+    // Sort root comments by createdAt desc, replies by createdAt asc
+    rootComments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    rootComments.forEach((comment) => {
+      comment.replies.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    });
+
+    // Paginate root comments
+    const paginatedRootComments = rootComments.slice(skip, skip + limit);
 
     return NextResponse.json({
-      comments,
+      comments: paginatedRootComments,
       pagination: {
         page,
         limit,
@@ -117,6 +138,29 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Get target author and send notification
+    let targetAuthorId: string | null = null;
+    let targetTitle: string | null = null;
+
+    if (targetType === 'creation') {
+      const creation = await prisma.creation.findUnique({
+        where: { id: targetId },
+        select: { authorId: true, title: true },
+      });
+      targetAuthorId = creation?.authorId || null;
+      targetTitle = creation?.title || null;
+    }
+
+    if (targetAuthorId && targetAuthorId !== user.userId) {
+      await sendInteractionNotification(
+        'comment',
+        targetAuthorId,
+        user.userId,
+        user.user.nickname || user.username,
+        targetTitle || undefined
+      );
+    }
+
     return NextResponse.json({ comment }, { status: 201 });
   } catch (error) {
     console.error('POST /api/comments error:', error);
@@ -157,6 +201,14 @@ export async function DELETE(request: NextRequest) {
       where: { id },
       data: { isDeleted: true },
     });
+
+    // Decrement comment count if creation
+    if (comment.targetType === 'creation') {
+      await prisma.creation.update({
+        where: { id: comment.targetId },
+        data: { commentCount: { decrement: 1 } },
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

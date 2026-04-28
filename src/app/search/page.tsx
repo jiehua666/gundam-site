@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Search, User, Bot, Image } from "lucide-react";
+import { Search, User, Bot, Image as ImageIcon } from "lucide-react";
 
 interface Mecha {
   id: string;
@@ -18,6 +18,7 @@ interface Creation {
   title: string;
   coverImage: string | null;
   authorId: string;
+  images: { url: string }[];
 }
 
 interface User {
@@ -160,7 +161,7 @@ function SearchContent() {
               {creations.length > 0 && (
                 <div className="mb-8">
                   <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                    <Image className="w-5 h-5 text-primary" />
+                    <ImageIcon className="w-5 h-5 text-primary" />
                     作品 ({creations.length})
                   </h2>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -170,10 +171,10 @@ function SearchContent() {
                         className="glass-card neon-border-hover rounded-xl overflow-hidden hover:scale-105 transition"
                       >
                         <div className="aspect-square bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                          {creation.coverImage ? (
-                            <img src={creation.coverImage} alt={creation.title} className="w-full h-full object-cover" />
+                          {creation.images[0]?.url ? (
+                            <img src={creation.images[0].url} alt={creation.title} className="w-full h-full object-cover" />
                           ) : (
-                            <Image className="w-8 h-8 text-muted-foreground" />
+                            <ImageIcon className="w-8 h-8 text-muted-foreground" />
                           )}
                         </div>
                         <div className="p-3">

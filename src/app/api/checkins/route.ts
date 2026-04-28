@@ -52,15 +52,15 @@ export async function GET(request: NextRequest) {
       orderBy: { checkinDate: 'asc' },
     });
 
-    // 检查今天是否已签到
+    // 检查今天是否已签到（使用 UTC）
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setUTCHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 
     const checkedInToday = checkins.some(c => {
       const checkinDate = new Date(c.checkinDate);
-      checkinDate.setHours(0, 0, 0, 0);
+      checkinDate.setUTCHours(0, 0, 0, 0);
       return checkinDate.getTime() === today.getTime();
     });
 
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       checkedInToday,
       checkinDates: checkins.map(c => {
         const d = new Date(c.checkinDate);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
       }),
       stats: {
         consecutiveDays: userStats.consecutiveDays,
@@ -101,13 +101,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const { useCard = false, date: targetDateStr } = body; // 是否使用补签卡补签
 
-    // 确定签到日期
-    const checkinDate = targetDateStr ? new Date(targetDateStr) : new Date();
-    checkinDate.setHours(0, 0, 0, 0);
+    // 确定签到日期（使用 UTC 避免时区问题）
+    const checkinDate = targetDateStr ? new Date(targetDateStr + 'T00:00:00Z') : new Date();
+    checkinDate.setUTCHours(0, 0, 0, 0);
 
     // 只能补签过去的日期，不能补签今天或未来
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setUTCHours(0, 0, 0, 0);
     const isBackfill = targetDateStr && checkinDate < today;
 
     // 检查今天是否已签到
@@ -140,9 +140,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 计算连续签到天数（基于补签日期计算）
+    // 计算连续签到天数（基于补签日期计算，使用 UTC）
     const yesterday = new Date(checkinDate);
-    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
 
     const yesterdayCheckin = await prisma.checkin.findUnique({
       where: {
@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       checkin: {
-        date: checkinDate.toISOString().split('T')[0],
+        date: `${checkinDate.getUTCFullYear()}-${String(checkinDate.getUTCMonth() + 1).padStart(2, '0')}-${String(checkinDate.getUTCDate()).padStart(2, '0')}`,
         xpEarned,
         consecutiveDays: newConsecutiveDays,
         totalDays: updatedStats.checkinDays,
@@ -240,4 +240,52 @@ async function calculateLevel(totalXp: number): Promise<number> {
   }
 
   return 1; // 默认1级
+}
+
+// DELETE /api/checkins - 删除签到记录（仅管理员）
+export async function DELETE(request: NextRequest) {
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // 检查是否是管理员或创始人
+    const user = await prisma.user.findUnique({
+      where: { id: currentUser.userId },
+      select: { role: true },
+    });
+
+    if (user?.role !== 'admin' && user?.role !== 'founder') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
+    }
+
+    // 删除该用户的签到记录
+    await prisma.checkin.deleteMany({
+      where: { userId },
+    });
+
+    // 重置该用户的签到统计
+    await prisma.userStats.update({
+      where: { userId },
+      data: {
+        consecutiveDays: 0,
+        checkinDays: 0,
+        bestConsecutiveDays: 0,
+        totalXp: 0,
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('DELETE /api/checkins error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }

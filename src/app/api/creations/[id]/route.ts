@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, isAdmin } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
@@ -95,6 +95,121 @@ export async function GET(
     return NextResponse.json({ creation, viewed: true });
   } catch (error) {
     console.error('GET /api/creations/[id] error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+// PUT /api/creations/[id] - 更新作品
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const body = await request.json();
+
+    // 检查作品是否存在
+    const creation = await prisma.creation.findUnique({
+      where: { id, isDeleted: false },
+    });
+
+    if (!creation) {
+      return NextResponse.json({ error: 'Creation not found' }, { status: 404 });
+    }
+
+    // 检查权限：只有作者或管理员可以编辑
+    if (creation.authorId !== currentUser.userId && !isAdmin(currentUser.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const {
+      title,
+      content,
+      relatedMechaId,
+      tags,
+      copyrightType,
+      imageUrls,
+    } = body;
+
+    // 更新作品
+    const updated = await prisma.creation.update({
+      where: { id },
+      data: {
+        title: title || creation.title,
+        content: content !== undefined ? content : creation.content,
+        relatedMechaId: relatedMechaId !== undefined ? relatedMechaId : creation.relatedMechaId,
+        tags: tags !== undefined ? tags : creation.tags,
+        copyrightType: copyrightType || creation.copyrightType,
+      },
+    });
+
+    // 如果提供了新图片，替换图片
+    if (imageUrls && Array.isArray(imageUrls)) {
+      // 删除旧图片
+      await prisma.creationImage.deleteMany({
+        where: { creationId: id },
+      });
+
+      // 创建新图片
+      if (imageUrls.length > 0) {
+        await prisma.creationImage.createMany({
+          data: imageUrls.map((url: string, index: number) => ({
+            creationId: id,
+            url,
+            type: 'image',
+            sortOrder: index,
+          })),
+        });
+      }
+    }
+
+    return NextResponse.json({ success: true, creation: updated });
+  } catch (error) {
+    console.error('PUT /api/creations/[id] error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// DELETE /api/creations/[id] - 删除作品
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    // 检查作品是否存在
+    const creation = await prisma.creation.findUnique({
+      where: { id, isDeleted: false },
+    });
+
+    if (!creation) {
+      return NextResponse.json({ error: 'Creation not found' }, { status: 404 });
+    }
+
+    // 检查权限：只有作者或管理员可以删除
+    if (creation.authorId !== currentUser.userId && !isAdmin(currentUser.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // 软删除
+    await prisma.creation.update({
+      where: { id },
+      data: { isDeleted: true },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('DELETE /api/creations/[id] error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

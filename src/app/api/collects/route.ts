@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { sendInteractionNotification } from '@/lib/notifications';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const targetType = searchParams.get('targetType'); // 'creation' | 'mecha' | 'comment'
+    const targetType = searchParams.get('targetType');
     const targetId = searchParams.get('targetId');
 
     if (!targetType || !targetId) {
@@ -69,11 +70,27 @@ export async function POST(request: NextRequest) {
     });
 
     // Increment collect count based on target type
+    let targetAuthorId: string | null = null;
+    let targetTitle: string | null = null;
+
     if (targetType === 'creation') {
-      await prisma.creation.update({
+      const creation = await prisma.creation.update({
         where: { id: targetId },
         data: { collectCount: { increment: 1 } },
       });
+      targetAuthorId = creation.authorId;
+      targetTitle = creation.title;
+    }
+
+    // Send notification to author
+    if (targetAuthorId && targetAuthorId !== user.userId) {
+      await sendInteractionNotification(
+        'collect',
+        targetAuthorId,
+        user.userId,
+        user.user.nickname || user.username,
+        targetTitle || undefined
+      );
     }
 
     return NextResponse.json({ collect }, { status: 201 });
@@ -85,9 +102,8 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const targetType = searchParams.get('targetType');
-    const targetId = searchParams.get('targetId');
+    const body = await request.json();
+    const { targetType, targetId } = body;
 
     if (!targetType || !targetId) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });

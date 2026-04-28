@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { sendInteractionNotification } from '@/lib/notifications';
 
 export async function GET(request: NextRequest) {
   try {
@@ -69,16 +70,33 @@ export async function POST(request: NextRequest) {
     });
 
     // Increment like count based on target type
+    let targetAuthorId: string | null = null;
+    let targetTitle: string | null = null;
+
     if (targetType === 'creation') {
-      await prisma.creation.update({
+      const creation = await prisma.creation.update({
         where: { id: targetId },
         data: { likeCount: { increment: 1 } },
       });
+      targetAuthorId = creation.authorId;
+      targetTitle = creation.title;
     } else if (targetType === 'mecha') {
-      await prisma.mecha.update({
+      const mecha = await prisma.mecha.update({
         where: { id: targetId },
         data: { likeCount: { increment: 1 } },
       });
+      targetTitle = mecha.name;
+    }
+
+    // Send notification to author
+    if (targetAuthorId && targetAuthorId !== user.userId) {
+      await sendInteractionNotification(
+        'like',
+        targetAuthorId,
+        user.userId,
+        user.user.nickname || user.username,
+        targetTitle || undefined
+      );
     }
 
     return NextResponse.json({ like }, { status: 201 });

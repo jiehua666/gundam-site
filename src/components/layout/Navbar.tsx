@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Moon, Sun, Menu, X, Search } from "lucide-react";
+import { Moon, Sun, Menu, X, Search, MessageCircle, Shield } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { useAppTheme } from "@/components/Providers";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
@@ -106,8 +106,18 @@ export default function Navbar() {
               )}
             </button>
 
-            {/* Notifications - only show when authenticated */}
+{/* Notifications - only show when authenticated */}
             {isAuthenticated && <NotificationDropdown />}
+
+            {/* Messages - only show when authenticated */}
+            {isAuthenticated && (
+              <Link
+                href="/messages"
+                className="p-2 rounded-lg border border-primary/30 hover:bg-primary/10 transition"
+              >
+                <MessageCircle className="w-5 h-5 text-primary" />
+              </Link>
+            )}
 
             {/* User Menu */}
             {isAuthenticated && user ? (
@@ -116,7 +126,7 @@ export default function Navbar() {
                   {user.nickname}
                 </button>
                 {/* Dropdown */}
-                <div className="absolute right-0 top-full mt-1 w-40 bg-card rounded-xl border border-border shadow-xl overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                <div className="absolute right-0 top-full mt-1 w-48 bg-card rounded-xl border border-border shadow-xl overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
                   <Link
                     href={`/users/${user.id}`}
                     className="block px-4 py-2 text-sm text-foreground hover:bg-primary/10 transition"
@@ -129,6 +139,29 @@ export default function Navbar() {
                   >
                     设置
                   </Link>
+                  {(user.role === "admin" || user.role === "founder") && (
+                    <>
+                      <Link
+                        href="/creations/new"
+                        className="block px-4 py-2 text-sm text-foreground hover:bg-primary/10 transition"
+                      >
+                        发布作品
+                      </Link>
+                      <Link
+                        href="/mechas/new"
+                        className="block px-4 py-2 text-sm text-foreground hover:bg-primary/10 transition"
+                      >
+                        添加机体
+                      </Link>
+                      <Link
+                        href="/admin"
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-primary/10 transition border-t border-border"
+                      >
+                        <Shield className="w-4 h-4" />
+                        管理后台
+                      </Link>
+                    </>
+                  )}
                 </div>
               </div>
             ) : (
@@ -218,6 +251,16 @@ export default function Navbar() {
               >
                 公告
               </Link>
+              {isAuthenticated && (user?.role === "admin" || user?.role === "founder") && (
+                <Link
+                  href="/admin"
+                  className="flex items-center gap-2 px-4 py-2 text-red-400 hover:bg-primary/10 rounded-lg transition"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <Shield className="w-4 h-4" />
+                  管理后台
+                </Link>
+              )}
               {!isAuthenticated && (
                 <div className="flex gap-2 pt-2 border-t border-border">
                   <Link
